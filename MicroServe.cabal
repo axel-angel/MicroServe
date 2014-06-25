@@ -56,3 +56,5 @@ executable MicroServe
                  , mime-mail                     >= 0.4.4
                  , blaze-html                    >= 0.7.0.1
                  , mime-types                    >= 0.1.0.4
+                 , filepath                      >= 1.3.0.1
+                 , http-types                    >= 0.8.4

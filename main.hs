@@ -9,28 +9,38 @@ import Network.Mime (defaultMimeLookup)
 import Data.Text
 import Data.ByteString.Lazy (readFile)
 import Data.Monoid ((<>))
+import System.FilePath ((</>))
+import Network.HTTP.Types
 
-data HelloWorld = HelloWorld
+data MicroServe = MicroServe
 
-mkYesod "HelloWorld" [parseRoutes|
-/ MainR GET
-/#Text GetR GET
+mkYesod "MicroServe" [parseRoutes|
+/      MainR GET POST
+/#Text GoR   GET POST
 |]
 
-instance Yesod HelloWorld where
+instance Yesod MicroServe where
     makeSessionBackend _ = return Nothing
+instance RenderMessage MicroServe FormMessage where
+    renderMessage _ _ = defaultFormMessage
 
 {- Main pages -}
 
 getMainR :: Handler Html
 getMainR = listDir "."
 
-getGetR :: Text -> Handler TypedContent
-getGetR path = do
+postMainR :: Handler Text
+postMainR = postIn "."
+
+getGoR :: Text -> Handler TypedContent
+getGoR path = do
     isDir <- liftIO $ doesDirectoryExist $ unpack path
     if isDir
        then toTypedContent `fmap` listDir path
        else rawFile path
+
+postGoR :: Text -> Handler Text
+postGoR path = postIn path
 
 {- Utils -}
 
@@ -51,9 +61,27 @@ listDir path = do
         <ul>
             $forall f <- fs
                 <li>
-                    <a href=@{GetR $ fpath $ pack f}>
+                    <a href=@{GoR $ fpath $ pack f}>
                         #{f}
     |]
 
+postIn :: Text -> Handler Text
+postIn path = do
+    res <- runInputPostResult $ ireq fileField "file"
+    ur <- getUrlRender
+    case res of
+         FormSuccess f -> do
+             path <- saveUpload path f
+             sendResponseStatus status200 $ (ur $ GoR path) <> "\n"
+         _ -> do
+             sendResponseStatus status400 ("Invalid input" :: Text)
+
+saveUpload :: Text -> FileInfo -> Handler Text
+saveUpload path file = do
+    let fullPath = unpack path </> unpack (fileName file)
+    liftIO $ fileMove file fullPath
+    return $ pack fullPath
+
+{- Main -}
 main :: IO ()
-main = warp 3000 HelloWorld
+main = warp 3000 MicroServe
