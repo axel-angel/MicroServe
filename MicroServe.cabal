@@ -10,6 +10,7 @@ executable MicroServe
     extensions: TemplateHaskell
                 QuasiQuotes
                 OverloadedStrings
+                NoImplicitPrelude
                 CPP
                 MultiParamTypeClasses
                 TypeFamilies
@@ -54,3 +55,4 @@ executable MicroServe
                  , esqueleto                     >= 1.3.2
                  , mime-mail                     >= 0.4.4
                  , blaze-html                    >= 0.7.0.1
+                 , mime-types                    >= 0.1.0.4
