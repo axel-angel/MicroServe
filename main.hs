@@ -1,7 +1,4 @@
-{-# LANGUAGE QuasiQuotes           #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 import Yesod
 import Prelude hiding (head, readFile)
 import System.Directory (getDirectoryContents, doesDirectoryExist)
@@ -81,8 +78,8 @@ postIn path = do
     ur <- getUrlRender
     case res of
          FormSuccess f -> do
-             path <- saveUpload path f
-             sendResponseStatus status200 $ (ur $ GoR path) <> "\n"
+             fpath <- saveUpload path f
+             sendResponseStatus status200 $ (ur $ GoR fpath) <> "\n"
          _ -> do
              sendResponseStatus status400 ("Invalid input" :: Text)
 
