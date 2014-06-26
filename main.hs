@@ -23,8 +23,11 @@ instance Yesod MicroServe where
     makeSessionBackend _ = return Nothing
 instance RenderMessage MicroServe FormMessage where
     renderMessage _ _ = defaultFormMessage
+type Form a = Html -> MForm (HandlerT MicroServe IO) (FormResult a, Widget)
 
 {- Main pages -}
+
+-- TODO: warning, can escape from parent directory
 
 getMainR :: Handler Html
 getMainR = listDir "."
@@ -52,6 +55,7 @@ rawFile path = do
 
 listDir :: Text -> Handler Html
 listDir path = do
+    (fwid, fenc) <- generateFormPost postForm
     fs <- liftIO $ getDirectoryContents $ unpack path
     let fpath f = path <> "/" <> f
     defaultLayout [whamlet|
@@ -63,11 +67,17 @@ listDir path = do
                 <li>
                     <a href=@{GoR $ fpath $ pack f}>
                         #{f}
+
+        <h2>
+            Upload here
+        <form method=POST enctype=#{fenc}>
+            ^{fwid}
+            <button type=submit>Upload
     |]
 
 postIn :: Text -> Handler Text
 postIn path = do
-    res <- runInputPostResult $ ireq fileField "file"
+    ((res, _), _) <- runFormPost postForm
     ur <- getUrlRender
     case res of
          FormSuccess f -> do
@@ -81,6 +91,9 @@ saveUpload path file = do
     let fullPath = unpack path </> unpack (fileName file)
     liftIO $ fileMove file fullPath
     return $ pack fullPath
+
+postForm :: Form FileInfo
+postForm = renderDivs $ areq fileField "file" Nothing
 
 {- Main -}
 main :: IO ()
