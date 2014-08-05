@@ -8,6 +8,7 @@ import Data.ByteString.Lazy (readFile)
 import Data.Monoid ((<>))
 import System.FilePath ((</>))
 import Network.HTTP.Types
+import Data.List (sort)
 
 data MicroServe = MicroServe
 
@@ -61,7 +62,7 @@ listDir path = do
             Listing of #{path}
 
         <ul>
-            $forall f <- fs
+            $forall f <- sort fs
                 <li>
                     <a href=@{GoR $ fpath $ pack f}>
                         #{f}
