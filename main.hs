@@ -3,12 +3,13 @@ import Yesod
 import Prelude hiding (head, readFile)
 import System.Directory (getDirectoryContents, doesDirectoryExist)
 import Network.Mime (defaultMimeLookup)
-import Data.Text
+import Data.Text hiding (length)
 import Data.ByteString.Lazy (readFile)
 import Data.Monoid ((<>))
 import System.FilePath ((</>))
 import Network.HTTP.Types
 import Data.List (sort)
+import System.Environment (getArgs)
 
 data MicroServe = MicroServe
 
@@ -96,4 +97,7 @@ postForm = renderDivs $ areq fileField "file" Nothing
 
 {- Main -}
 main :: IO ()
-main = warp 3000 MicroServe
+main = do
+    args <- getArgs
+    let port = if length args > 0 then read (args !! 0) else 3000
+    warp port MicroServe
