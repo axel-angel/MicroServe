@@ -18,6 +18,7 @@ mkYesod "MicroServe" [parseRoutes|
 
 instance Yesod MicroServe where
     makeSessionBackend _ = return Nothing
+    maximumContentLength _ _ = Just $ 10 * 1024 * 1024 * 1024 -- 10 Go
 instance RenderMessage MicroServe FormMessage where
     renderMessage _ _ = defaultFormMessage
 type Form a = Html -> MForm (HandlerT MicroServe IO) (FormResult a, Widget)
