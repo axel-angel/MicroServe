@@ -92,7 +92,7 @@ listDir path = do
 postIn :: UnsafePath -> Handler Text
 postIn upath = do
     path <- getPathSafe upath
-    exists <- liftIO $ doesDirectoryExist $ unpack path
+    exists <- (path == "" ||) <$> (liftIO $ doesDirectoryExist $ unpack path)
     when (not exists) $ notFound
 
     ((res, _), _) <- runFormPost postForm
