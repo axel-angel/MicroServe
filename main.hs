@@ -69,7 +69,7 @@ listDir path = do
     (fwid, fenc) <- generateFormPost postForm
     defaultLayout [whamlet|
         <h1>
-            Listing of #{path}
+            Listing of #{vpath}
 
         <ul>
             $forall f <- sort fs
