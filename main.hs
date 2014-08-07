@@ -3,7 +3,8 @@ import Yesod.Core
 import Yesod.Form
 
 import Prelude hiding (head, readFile)
-import System.Directory (getDirectoryContents, doesDirectoryExist)
+import System.Directory (getDirectoryContents, doesDirectoryExist
+                        , doesFileExist)
 import Network.Mime (defaultMimeLookup)
 import Data.Text (Text, pack, unpack)
 import Data.ByteString.Lazy (readFile)
@@ -15,6 +16,7 @@ import System.Environment (getArgs)
 import Control.Applicative ((<$>))
 import Text.Regex.Posix
 import Data.String (IsString(..))
+import Control.Monad (when)
 
 data MicroServe = MicroServe
 newtype UnsafePath = UnsafePath Text
@@ -43,10 +45,13 @@ postMainR = postIn ""
 getGoR :: UnsafePath -> Handler TypedContent
 getGoR upath = do
     path <- getPathSafe upath
-    isDir <- liftIO $ doesDirectoryExist $ unpack path
-    if isDir
-       then toTypedContent `fmap` listDir path
-       else rawFile path
+    let strPath = unpack path
+    isDir <- liftIO $ doesDirectoryExist strPath
+    isFile <- liftIO $ doesFileExist strPath
+    case (isDir, isFile) of
+        (True, False) -> toTypedContent <$> listDir path
+        (False, True) -> rawFile path
+        _ -> notFound
 
 postGoR :: UnsafePath -> Handler Text
 postGoR path = postIn path
@@ -87,6 +92,9 @@ listDir path = do
 postIn :: UnsafePath -> Handler Text
 postIn upath = do
     path <- getPathSafe upath
+    exists <- liftIO $ doesDirectoryExist $ unpack path
+    when (not exists) $ notFound
+
     ((res, _), _) <- runFormPost postForm
     ur <- getUrlRender
     case res of
