@@ -1,21 +1,28 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
-import Yesod
+import Yesod.Core
+import Yesod.Form
+
 import Prelude hiding (head, readFile)
 import System.Directory (getDirectoryContents, doesDirectoryExist)
 import Network.Mime (defaultMimeLookup)
-import Data.Text hiding (length)
+import Data.Text (Text, pack, unpack)
 import Data.ByteString.Lazy (readFile)
 import Data.Monoid ((<>))
 import System.FilePath ((</>))
 import Network.HTTP.Types
 import Data.List (sort)
 import System.Environment (getArgs)
+import Control.Applicative ((<$>))
+import Text.Regex.Posix
+import Data.String (IsString(..))
 
 data MicroServe = MicroServe
+newtype UnsafePath = UnsafePath Text
+    deriving (Eq, Show, Read, PathPiece, IsString)
 
 mkYesod "MicroServe" [parseRoutes|
-/      MainR GET POST
-/#Text GoR   GET POST
+/            MainR GET POST
+/#UnsafePath GoR   GET POST
 |]
 
 instance Yesod MicroServe where
@@ -27,22 +34,21 @@ type Form a = Html -> MForm (HandlerT MicroServe IO) (FormResult a, Widget)
 
 {- Main pages -}
 
--- TODO: warning, can escape from parent directory
-
 getMainR :: Handler Html
-getMainR = listDir "."
+getMainR = listDir ""
 
 postMainR :: Handler Text
-postMainR = postIn "."
+postMainR = postIn ""
 
-getGoR :: Text -> Handler TypedContent
-getGoR path = do
+getGoR :: UnsafePath -> Handler TypedContent
+getGoR upath = do
+    path <- getPathSafe upath
     isDir <- liftIO $ doesDirectoryExist $ unpack path
     if isDir
        then toTypedContent `fmap` listDir path
        else rawFile path
 
-postGoR :: Text -> Handler Text
+postGoR :: UnsafePath -> Handler Text
 postGoR path = postIn path
 
 {- Utils -}
@@ -55,9 +61,12 @@ rawFile path = do
 
 listDir :: Text -> Handler Html
 listDir path = do
+    let (vpath, prefix) = if path == "" then (".", "") else (path, path <> "/")
+        filterFiles = filter $ isPathSafe . pack -- hide unsafe
+    fs <- filterFiles <$> (liftIO $ getDirectoryContents $ unpack vpath)
+    let fpath f = prefix <> f
+
     (fwid, fenc) <- generateFormPost postForm
-    fs <- liftIO $ getDirectoryContents $ unpack path
-    let fpath f = path <> "/" <> f
     defaultLayout [whamlet|
         <h1>
             Listing of #{path}
@@ -65,7 +74,7 @@ listDir path = do
         <ul>
             $forall f <- sort fs
                 <li>
-                    <a href=@{GoR $ fpath $ pack f}>
+                    <a href=@{GoR $ UnsafePath $ fpath $ pack f}>
                         #{f}
 
         <h2>
@@ -75,14 +84,15 @@ listDir path = do
             <button type=submit>Upload
     |]
 
-postIn :: Text -> Handler Text
-postIn path = do
+postIn :: UnsafePath -> Handler Text
+postIn upath = do
+    path <- getPathSafe upath
     ((res, _), _) <- runFormPost postForm
     ur <- getUrlRender
     case res of
          FormSuccess f -> do
              fpath <- saveUpload path f
-             sendResponseStatus status200 $ (ur $ GoR fpath) <> "\n"
+             sendResponseStatus status200 $ (ur $ GoR $ UnsafePath fpath) <> "\n"
          _ -> do
              sendResponseStatus status400 ("Invalid input" :: Text)
 
@@ -94,6 +104,14 @@ saveUpload path file = do
 
 postForm :: Form FileInfo
 postForm = renderDivs $ areq fileField "file" Nothing
+
+isPathSafe :: Text -> Bool
+isPathSafe path = not $ unpack path =~ pattern
+    where pattern = "(^|/)\\." :: String
+
+getPathSafe :: UnsafePath -> Handler Text
+getPathSafe (UnsafePath path) = if safe then return path else notFound
+    where safe = isPathSafe path
 
 {- Main -}
 main :: IO ()
