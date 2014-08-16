@@ -16,7 +16,7 @@ import System.Environment (getArgs)
 import Control.Applicative ((<$>))
 import Text.Regex.Posix
 import Data.String (IsString(..))
-import Control.Monad (when)
+import Control.Monad (when, forM_)
 
 data MicroServe = MicroServe
 newtype UnsafePath = UnsafePath Text
@@ -71,7 +71,6 @@ listDir path = do
     fs <- filterFiles <$> (liftIO $ getDirectoryContents $ unpack vpath)
     let fpath f = prefix <> f
 
-    (fwid, fenc) <- generateFormPost postForm
     defaultLayout [whamlet|
         <h1>
             Listing of #{vpath}
@@ -84,8 +83,8 @@ listDir path = do
 
         <h2>
             Upload here
-        <form method=POST enctype=#{fenc}>
-            ^{fwid}
+        <form method=POST enctype="multipart/form-data">
+            <input type=file name=files multiple />
             <button type=submit>Upload
     |]
 
@@ -95,23 +94,18 @@ postIn upath = do
     exists <- (path == "" ||) <$> (liftIO $ doesDirectoryExist $ unpack path)
     when (not exists) $ notFound
 
-    ((res, _), _) <- runFormPost postForm
-    ur <- getUrlRender
-    case res of
-         FormSuccess f -> do
-             fpath <- saveUpload path f
-             sendResponseStatus status200 $ (ur $ GoR $ UnsafePath fpath) <> "\n"
-         _ -> do
-             sendResponseStatus status400 ("Invalid input" :: Text)
+    files <- lookupFiles "files"
+    case files of
+         [] -> sendResponseStatus status400 ("Invalid input" :: Text)
+         xs -> do
+             forM_ xs $ saveUpload path
+             redirect $ GoR upath
 
 saveUpload :: Text -> FileInfo -> Handler Text
 saveUpload path file = do
     let fullPath = unpack path </> unpack (fileName file)
     liftIO $ fileMove file fullPath
     return $ pack fullPath
-
-postForm :: Form FileInfo
-postForm = renderDivs $ areq fileField "file" Nothing
 
 isPathSafe :: Text -> Bool
 isPathSafe path = not $ unpack path =~ pattern
