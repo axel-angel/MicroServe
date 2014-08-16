@@ -73,19 +73,22 @@ listDir path = do
 
     defaultLayout [whamlet|
         <h1>
-            Listing of #{vpath}
-
-        <ul>
-            $forall f <- sort fs
-                <li>
-                    <a href=@{GoR $ UnsafePath $ fpath $ pack f}>
-                        #{f}
+            Directory #{vpath}
 
         <h2>
             Upload here
         <form method=POST enctype="multipart/form-data">
             <input type=file name=files multiple />
             <button type=submit>Upload
+
+        <h2>
+            Listing
+
+        <ul>
+            $forall f <- sort fs
+                <li>
+                    <a href=@{GoR $ UnsafePath $ fpath $ pack f}>
+                        #{f}
     |]
 
 postIn :: UnsafePath -> Handler Text
