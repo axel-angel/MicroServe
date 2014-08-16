@@ -102,7 +102,7 @@ postIn upath = do
          [] -> sendResponseStatus status400 ("Invalid input" :: Text)
          xs -> do
              forM_ xs $ saveUpload path
-             redirect $ GoR upath
+             redirect $ if (path == "") then MainR else GoR upath
 
 saveUpload :: Text -> FileInfo -> Handler Text
 saveUpload path file = do
