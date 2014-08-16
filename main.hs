@@ -18,6 +18,9 @@ import Text.Regex.Posix
 import Data.String (IsString(..))
 import Control.Monad (when, forM_)
 
+allowOverwrite :: Bool
+allowOverwrite = True
+
 data MicroServe = MicroServe
 newtype UnsafePath = UnsafePath Text
     deriving (Eq, Show, Read, PathPiece, IsString)
@@ -107,6 +110,9 @@ postIn upath = do
 saveUpload :: Text -> FileInfo -> Handler Text
 saveUpload path file = do
     let fullPath = unpack path </> unpack (fileName file)
+    alreadyExists <- liftIO $ doesFileExist fullPath
+    when (not allowOverwrite && alreadyExists) $
+        sendResponseStatus status400 ("File exists: " <> fullPath)
     liftIO $ fileMove file fullPath
     return $ pack fullPath
 
